@@ -1,40 +1,44 @@
+# Define variables
 %global module_name linuwu_sense
-%global kernel_version %(uname -r)
-%global debug_package %{nil}
+# Replace hyphens (-) with underscores (_) to make it RPM-safe
+%global kernel_ver_real %(uname -r)
+%global kernel_ver_sanitized %(uname -r | tr - _)
 
-Name:             kernel-modules-solosaravanan
+Name:             kernel-modules-collection
 Version:          1.0
-Release:          1%{?dist}
-Summary:          Kernel module: %{module_name} from Solosaravanan's kernel modules collection
+Release:          %{kernel_ver_sanitized}%{?dist}
+Summary:          Kernel modules for %{kernel_ver_real}
 License:          GPLv2
 URL:              https://github.com/SoloSaravanan
 
-# Correct tarball reference
-Source0:          kernel-modules-solosaravanan-1.0.tar.gz
+BuildRequires:    make gcc kernel-devel
+Requires(post):   kmod
+Requires(postun): kmod
+Provides:         kmod(%{module_name})
 
-BuildRequires:     make gcc kernel-devel
-Requires(post):    kmod
-Requires(postun):  kmod
-Provides:          kmod(%{module_name})
+Obsoletes:        kernel-modules-collection < %{version}-%{release}
+Conflicts:        kernel-modules-collection < %{version}-%{release}
 
 %description
-My kernel module collection.
+Kernel module %{module_name} built for kernel %{kernel_ver_real}.
 
 %prep
-%setup -q -n kernel-modules
+cp -a %{_sourcedir}/Linuwu-Sense .
 
 %build
-make KVER=%{kernel_version} -C %{_builddir}/kernel-modules/Linuwu-Sense
+make KVER=%{kernel_ver_real} -C Linuwu-Sense
 
 %install
-mkdir -p %{buildroot}/lib/modules/%{kernel_version}/kernel/drivers/platform/x86
-install -m 644 Linuwu-Sense/linuwu_sense.ko %{buildroot}/lib/modules/%{kernel_version}/kernel/drivers/platform/x86/
+mkdir -p %{buildroot}/lib/modules/%{kernel_ver_real}/kernel/drivers/platform/x86
+install -m 644 Linuwu-Sense/linuwu_sense.ko \
+    %{buildroot}/lib/modules/%{kernel_ver_real}/kernel/drivers/platform/x86/
 
 %post
-/sbin/depmod -a %{kernel_version} || true
+/sbin/depmod -a %{kernel_ver_real} || true
 
 %postun
-/sbin/depmod -a %{kernel_version} || true
+/sbin/depmod -a %{kernel_ver_real} || true
 
 %files
-/lib/modules/%{kernel_version}/kernel/drivers/platform/x86/%{module_name}.ko
+/lib/modules/%{kernel_ver_real}/kernel/drivers/platform/x86/%{module_name}.ko
+
