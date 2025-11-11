@@ -1,5 +1,5 @@
 **Build**
 
 ```
-rpmbuild -ba kernelmodule.spec --define "_sourcedir $(pwd)"
+rpmbuild -ba kernelmodules.spec --define "_sourcedir $(pwd)"
 ```
