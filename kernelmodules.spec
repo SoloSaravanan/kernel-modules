@@ -1,7 +1,8 @@
 %global module1 linuwu_sense
 %global module2 evdi
-%global kernel_ver_real %{expand:%(rpm -q --qf "%{VERSION}-%{RELEASE}.%{ARCH}" kernel-devel | head -n1)}
-%global kernel_ver_sanitized %{expand:%(echo %{kernel_ver_real} | sed 's/[^A-Za-z0-9]/_/g')}
+%global kernel_ver_real %(uname -r)
+%global kernel_ver_base %(uname -r | sed 's/\\.x86_64$//' | sed 's/\\.aarch64$//')
+%global kernel_ver_sanitized %(echo %{kernel_ver_base} | tr - _)
 
 Name:             kernel-modules-collection
 Version:          1.0
