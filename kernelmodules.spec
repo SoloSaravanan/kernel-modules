@@ -1,12 +1,12 @@
-# Define variables
 %global module_name linuwu_sense
-# Replace hyphens (-) with underscores (_) to make it RPM-safe
 %global kernel_ver_real %(uname -r)
-%global kernel_ver_sanitized %(uname -r | tr - _)
+%global kernel_ver_base %(uname -r | sed 's/\\.[^.]*$//')
+%global kernel_ver_sanitized %(echo %{kernel_ver_base} | tr - _)
+
 
 Name:             kernel-modules-collection
 Version:          1.0
-Release:          %{kernel_ver_sanitized}%{?dist}
+Release:          %{kernel_ver_sanitized}
 Summary:          Kernel modules for %{kernel_ver_real}
 License:          GPLv2
 URL:              https://github.com/SoloSaravanan
