@@ -1,12 +1,12 @@
 %global module1 linuwu_sense
 %global module2 evdi
 %global kernel_ver_real %(uname -r)
-%global kernel_ver_base %(uname -r | sed 's/\\.x86_64$//' | sed 's/\\.aarch64$//')
-%global kernel_ver_sanitized %(echo %{kernel_ver_base} | tr - _)
+%global kver_upstream %(uname -r | cut -d- -f1)
+%global kver_release %(uname -r | cut -d- -f2- | sed 's/\\.x86_64$//' | sed 's/\\.aarch64$//')
 
 Name:             kernel-modules-collection
-Version:          1.0
-Release:          %{kernel_ver_sanitized}
+Version:          %{kver_upstream}
+Release:          %{kver_release}
 Summary:          Custom kernel modules for kernel %{kernel_ver_real}
 License:          GPLv2
 URL:              https://github.com/SoloSaravanan
