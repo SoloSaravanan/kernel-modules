@@ -2,7 +2,7 @@
 %global module2 evdi
 %global kernel_ver_real %(uname -r)
 %global kver_upstream %(uname -r | cut -d- -f1)
-%global kver_release %(uname -r | cut -d- -f2- | sed 's/\\.x86_64$//' | sed 's/\\.aarch64$//')
+%global kver_release %(uname -r | cut -d- -f2- | sed 's/\\.x86_64$//' | sed 's/\\.aarch64$//' | sed 's/-/./g')
 
 Name:             kernel-modules-collection
 Version:          %{kver_upstream}
