@@ -1,8 +1,8 @@
 %global module1 linuwu_sense
 %global module2 evdi
-%global kernel_ver_real %(uname -r)
-%global kver_upstream %(uname -r | cut -d- -f1)
-%global kver_release %(uname -r | cut -d- -f2- | sed 's/\\.x86_64$//' | sed 's/\\.aarch64$//' | sed 's/-/./g')
+%global kernel_ver_real %(rpm -q kernel-devel --qf '%{VERSION}-%{RELEASE}.%{ARCH}' | head -n1)
+%global kver_upstream %(rpm -q kernel-devel --qf '%{VERSION}' | head -n1)
+%global kver_release %(rpm -q kernel-devel --qf '%{RELEASE}' | head -n1)
 
 Name:             kernel-modules-collection
 Version:          %{kver_upstream}
