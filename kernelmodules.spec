@@ -32,10 +32,26 @@ cp -a %{_sourcedir}/evdi .
 %build
 # Set up kernel build directory symlink
 KVER_SHORT=$(echo %{kernel_ver_real} | sed 's/\.x86_64$//' | sed 's/\.aarch64$//')
+echo "Kernel version: %{kernel_ver_real}"
+echo "Kernel short version: $KVER_SHORT"
+echo "Available kernel sources:"
+ls -la /usr/src/kernels/ || echo "No /usr/src/kernels directory"
+
+# Find the actual kernel source directory
+KERNEL_SRC=$(ls -1d /usr/src/kernels/* 2>/dev/null | head -n1)
+if [ -z "$KERNEL_SRC" ]; then
+    echo "ERROR: No kernel sources found in /usr/src/kernels/"
+    exit 1
+fi
+echo "Using kernel source: $KERNEL_SRC"
+
+# Create symlink
 if [ ! -e /lib/modules/%{kernel_ver_real}/build ]; then
     mkdir -p /lib/modules/%{kernel_ver_real}
-    ln -sf /usr/src/kernels/$KVER_SHORT /lib/modules/%{kernel_ver_real}/build
+    ln -sf "$KERNEL_SRC" /lib/modules/%{kernel_ver_real}/build
 fi
+echo "Symlink created:"
+ls -la /lib/modules/%{kernel_ver_real}/build
 
 make KVER=%{kernel_ver_real} -C Linuwu-Sense
 make KVER=%{kernel_ver_real} -C evdi
