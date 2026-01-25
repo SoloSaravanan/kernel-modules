@@ -30,6 +30,13 @@ cp -a %{_sourcedir}/Linuwu-Sense .
 cp -a %{_sourcedir}/evdi .
 
 %build
+# Set up kernel build directory symlink
+KVER_SHORT=$(echo %{kernel_ver_real} | sed 's/\.x86_64$//' | sed 's/\.aarch64$//')
+if [ ! -e /lib/modules/%{kernel_ver_real}/build ]; then
+    mkdir -p /lib/modules/%{kernel_ver_real}
+    ln -sf /usr/src/kernels/$KVER_SHORT /lib/modules/%{kernel_ver_real}/build
+fi
+
 make KVER=%{kernel_ver_real} -C Linuwu-Sense
 make KVER=%{kernel_ver_real} -C evdi
 

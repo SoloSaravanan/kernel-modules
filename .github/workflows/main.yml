@@ -24,20 +24,6 @@ jobs:
         run: |
           dnf install -y rpmdevtools kernel-devel git make gcc
 
-      - name: Set up kernel build directory
-        run: |
-          KVER=$(rpm -q kernel-devel --qf '%{VERSION}-%{RELEASE}.%{ARCH}' | head -n1)
-          KVER_SHORT=$(echo $KVER | sed 's/\.x86_64$//' | sed 's/\.aarch64$//')
-          echo "Kernel version: $KVER"
-          echo "Kernel short version: $KVER_SHORT"
-          # Create symlink if needed
-          if [ ! -e /lib/modules/$KVER/build ]; then
-            mkdir -p /lib/modules/$KVER
-            ln -sf /usr/src/kernels/$KVER_SHORT /lib/modules/$KVER/build
-          fi
-          ls -la /lib/modules/$KVER/build || true
-          ls -la /usr/src/kernels/ || true
-
       - name: Configure RPM Macros
         run: |
           cat > ~/.rpmmacros <<EOF
