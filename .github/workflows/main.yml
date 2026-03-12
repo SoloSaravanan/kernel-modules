@@ -35,6 +35,7 @@ jobs:
         run: |
           mkdir -p SOURCES SPECS
           cp -r Linuwu-Sense SOURCES/
+          cp -r xpad SOURCES/
           cp kernelmodules.spec SPECS/
 
       - name: Build RPM
