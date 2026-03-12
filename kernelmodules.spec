@@ -71,9 +71,9 @@ install -m 644 evdi/%{module2}.ko \
     %{buildroot}/lib/modules/%{kernel_ver_real}/kernel/drivers/gpu/drm/evdi/
 
 # xpad
-mkdir -p %{buildroot}/lib/modules/%{kernel_ver_real}/extra
+mkdir -p %{buildroot}/lib/modules/%{kernel_ver_real}/kernel/drivers/input/joystick
 install -m 644 xpad/%{module3}.ko \
-    %{buildroot}/lib/modules/%{kernel_ver_real}/extra/
+    %{buildroot}/lib/modules/%{kernel_ver_real}/kernel/drivers/input/joystick/
 
 %post
 /sbin/depmod -a %{kernel_ver_real} || true
