@@ -84,4 +84,4 @@ install -m 644 xpad/%{module3}.ko \
 %files
 /lib/modules/%{kernel_ver_real}/kernel/drivers/platform/x86/%{module1}.ko
 /lib/modules/%{kernel_ver_real}/kernel/drivers/gpu/drm/evdi/%{module2}.ko
-/lib/modules/%{kernel_ver_real}/extra/%{module3}.ko
+/lib/modules/%{kernel_ver_real}/kernel/drivers/input/joystick/%{module3}.ko
