@@ -72,7 +72,7 @@ install -m 644 evdi/%{module2}.ko \
 
 # xpad
 mkdir -p %{buildroot}/lib/modules/%{kernel_ver_real}/extra
-install -m 644 xpad/%{module2}.ko \
+install -m 644 xpad/%{module3}.ko \
     %{buildroot}/lib/modules/%{kernel_ver_real}/extra/
 
 %post
