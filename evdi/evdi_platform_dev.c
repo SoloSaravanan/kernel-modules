@@ -59,7 +59,7 @@ int evdi_platform_device_probe(struct platform_device *pdev)
 	struct evdi_platform_device_data *data;
 
 	EVDI_CHECKPT();
-	data = kzalloc(sizeof(struct evdi_platform_device_data), GFP_KERNEL);
+	data = kzalloc_obj(*data, GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
 #if KERNEL_VERSION(5, 9, 0) <= LINUX_VERSION_CODE || defined(EL8)
@@ -85,7 +85,7 @@ err_free:
 	return PTR_ERR_OR_ZERO(dev);
 }
 
-/* EL9 kernel removed the callback that was returning void  */
+/* EL9 kernel removed the callback that was returning void. Do not use for EL9 */
 #if KERNEL_VERSION(6, 11, 0) <= LINUX_VERSION_CODE
 void evdi_platform_device_remove(struct platform_device *pdev)
 #else
@@ -98,6 +98,7 @@ int evdi_platform_device_remove(struct platform_device *pdev)
 
 	evdi_drm_device_remove(data->drm_dev);
 	kfree(data);
+/* Need to return int for EL9 kernels */
 #if KERNEL_VERSION(6, 11, 0) <= LINUX_VERSION_CODE
 #else
 	return 0;

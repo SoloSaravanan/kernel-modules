@@ -104,12 +104,6 @@ static struct drm_driver driver = {
 	.open = evdi_driver_open,
 	.postclose = evdi_driver_postclose,
 
-#if KERNEL_VERSION(6, 15, 0) <= LINUX_VERSION_CODE
-#ifdef CONFIG_FB
-	.fbdev_probe = evdifb_create,
-#endif
-#endif
-
 	/* gem hooks */
 #if KERNEL_VERSION(5, 11, 0) <= LINUX_VERSION_CODE || defined(EL8)
 #elif KERNEL_VERSION(5, 9, 0) <= LINUX_VERSION_CODE
@@ -153,7 +147,7 @@ static struct drm_driver driver = {
 
 	.name = DRIVER_NAME,
 	.desc = DRIVER_DESC,
-#if KERNEL_VERSION(6, 14, 0) <= LINUX_VERSION_CODE
+#if KERNEL_VERSION(6, 14, 0) <= LINUX_VERSION_CODE || defined(EL9) || defined(EL10)
 #else
 	.date = DRIVER_DATE,
 #endif
@@ -182,7 +176,7 @@ static int evdi_drm_device_init(struct drm_device *dev)
 	int ret;
 
 	EVDI_CHECKPT();
-	evdi = kzalloc(sizeof(struct evdi_device), GFP_KERNEL);
+	evdi = kzalloc_obj(*evdi, GFP_KERNEL);
 	if (!evdi)
 		return -ENOMEM;
 
@@ -198,11 +192,6 @@ static int evdi_drm_device_init(struct drm_device *dev)
 		goto err_free;
 
 	evdi_modeset_init(dev);
-#ifdef CONFIG_FB
-	ret = evdi_fbdev_init(dev);
-	if (ret)
-		goto err_init;
-#endif /* CONFIG_FB */
 
 	ret = drm_vblank_init(dev, 1);
 	if (ret)
@@ -218,9 +207,6 @@ static int evdi_drm_device_init(struct drm_device *dev)
 	return 0;
 
 err_init:
-#ifdef CONFIG_FB
-	evdi_fbdev_cleanup(dev);
-#endif /* CONFIG_FB */
 err_free:
 	EVDI_ERROR("Failed to setup drm device %d\n", ret);
 	evdi_cursor_free(evdi->cursor);
@@ -289,10 +275,6 @@ err_free:
 static void evdi_drm_device_deinit(struct drm_device *dev)
 {
 	drm_kms_helper_poll_fini(dev);
-#ifdef CONFIG_FB
-	evdi_fbdev_unplug(dev);
-	evdi_fbdev_cleanup(dev);
-#endif /* CONFIG_FB */
 	evdi_modeset_cleanup(dev);
 	drm_atomic_helper_shutdown(dev);
 }

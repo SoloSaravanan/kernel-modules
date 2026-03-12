@@ -14,11 +14,13 @@
 #include <drm/drm_file.h>
 #include <drm/drm_vblank.h>
 #include <drm/drm_ioctl.h>
+#include <drm/drm_gem_framebuffer_helper.h>
 #elif KERNEL_VERSION(5, 5, 0) <= LINUX_VERSION_CODE
 #else
 #include <drm/drmP.h>
 #endif
 #include <drm/drm_edid.h>
+#include <drm/drm_cache.h>
 #include "evdi_drm.h"
 #include "evdi_drm_drv.h"
 #include "evdi_cursor.h"
@@ -28,17 +30,19 @@
 #include <linux/compiler.h>
 #include <linux/platform_device.h>
 #include <linux/completion.h>
-
+#include <linux/ktime.h>
+#include <linux/debugfs.h>
 #include <linux/dma-buf.h>
 #include <linux/vt_kern.h>
+#include <linux/vmalloc.h>
 #if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE || defined(EL8)
 #include <linux/compiler_attributes.h>
 #endif
 
 /* Import of DMA_BUF namespace was reverted in EL8 */
-#if KERNEL_VERSION(6, 13, 0) <= LINUX_VERSION_CODE
+#if KERNEL_VERSION(6, 13, 0) <= LINUX_VERSION_CODE || defined(EL9) || defined(EL10)
 MODULE_IMPORT_NS("DMA_BUF");
-#elif KERNEL_VERSION(5, 16, 0) <= LINUX_VERSION_CODE || defined(EL9)
+#elif KERNEL_VERSION(5, 16, 0) <= LINUX_VERSION_CODE
 MODULE_IMPORT_NS(DMA_BUF);
 #endif
 
@@ -113,6 +117,9 @@ struct evdi_painter {
 	unsigned int ddcci_buffer_length;
 	struct notifier_block vt_notifier;
 	int fg_console;
+#if KERNEL_VERSION(6, 7, 0) <= LINUX_VERSION_CODE
+	struct dentry *debugfs_measure_copy;
+#endif
 };
 
 static void expand_rect(struct drm_clip_rect *a, const struct drm_clip_rect *b)
@@ -166,6 +173,39 @@ static void collapse_dirty_rects(struct drm_clip_rect *rects, int *count)
 	*count = 1;
 }
 
+#if (KERNEL_VERSION(5, 18, 0) <= LINUX_VERSION_CODE || defined(EL8) || defined(EL9)) && defined(CONFIG_X86)
+static int copy_primary_pixels_on_xe(struct evdi_framebuffer *efb,
+			       char __user *buffer,
+			       int buf_byte_stride,
+			       int const max_x,
+			       int const max_y)
+{
+	int y;
+	struct drm_framebuffer *fb = &efb->base;
+	const int byte_span = max_x * 4;
+	struct iosys_map dst_mapping = IOSYS_MAP_INIT_VADDR(vmalloc(max_x * 4));
+
+	for (y = 0; y < max_y; ++y) {
+		const int src_offset = fb->offsets[0] + fb->pitches[0] * y;
+		struct iosys_map src_mapping = IOSYS_MAP_INIT_VADDR((char *)efb->obj->vmapping + src_offset);
+		const int dst_offset = buf_byte_stride * y;
+		char __user *dst = buffer + dst_offset;
+
+		drm_clflush_virt_range(src_mapping.vaddr, byte_span);
+		drm_memcpy_from_wc(&dst_mapping, &src_mapping, byte_span);
+		if (copy_to_user(dst, dst_mapping.vaddr, byte_span))
+			return -EFAULT;
+
+		src_mapping.vaddr += fb->pitches[0];
+		dst += buf_byte_stride;
+	}
+
+	vfree(dst_mapping.vaddr);
+	return 0;
+
+}
+#endif
+
 static int copy_primary_pixels(struct evdi_framebuffer *efb,
 			       char __user *buffer,
 			       int buf_byte_stride,
@@ -177,6 +217,11 @@ static int copy_primary_pixels(struct evdi_framebuffer *efb,
 	struct drm_clip_rect *r;
 
 	EVDI_CHECKPT();
+
+#if (KERNEL_VERSION(5, 18, 0) <= LINUX_VERSION_CODE || defined(EL8) || defined(EL9)) && defined(CONFIG_X86)
+	if (efb->is_from_xe)
+		return copy_primary_pixels_on_xe(efb, buffer, buf_byte_stride, max_x, max_y);
+#endif
 
 	for (r = rects; r != rects + num_rects; ++r) {
 		const int byte_offset = r->x1 * 4;
@@ -198,6 +243,9 @@ static int copy_primary_pixels(struct evdi_framebuffer *efb,
 			     r->y2);
 
 		for (; y > 0; --y) {
+#if defined(CONFIG_X86)
+			drm_clflush_virt_range((void *)src, byte_span);
+#endif
 			if (copy_to_user(dst, src, byte_span))
 				return -EFAULT;
 
@@ -365,7 +413,7 @@ static struct drm_pending_event *create_update_ready_event(void)
 {
 	struct evdi_event_update_ready_pending *event;
 
-	event = kzalloc(sizeof(*event), GFP_KERNEL);
+	event = kzalloc_obj(*event, GFP_KERNEL);
 	if (!event) {
 		EVDI_ERROR("Failed to create update ready event\n");
 		return NULL;
@@ -413,7 +461,7 @@ static struct drm_pending_event *create_cursor_set_event(
 	struct evdi_event_cursor_set_pending *event;
 	struct evdi_gem_object *eobj = NULL;
 
-	event = kzalloc(sizeof(*event), GFP_KERNEL);
+	event = kzalloc_obj(*event, GFP_KERNEL);
 	if (!event) {
 		EVDI_ERROR("Failed to create cursor set event\n");
 		return NULL;
@@ -460,7 +508,7 @@ static struct drm_pending_event *create_cursor_move_event(
 {
 	struct evdi_event_cursor_move_pending *event;
 
-	event = kzalloc(sizeof(*event), GFP_KERNEL);
+	event = kzalloc_obj(*event, GFP_KERNEL);
 	if (!event) {
 		EVDI_ERROR("Failed to create cursor move event\n");
 		return NULL;
@@ -492,7 +540,7 @@ static struct drm_pending_event *create_dpms_event(int mode)
 {
 	struct evdi_event_dpms_pending *event;
 
-	event = kzalloc(sizeof(*event), GFP_KERNEL);
+	event = kzalloc_obj(*event, GFP_KERNEL);
 	if (!event) {
 		EVDI_ERROR("Failed to create dpms event\n");
 		return NULL;
@@ -520,7 +568,7 @@ static struct drm_pending_event *create_mode_changed_event(
 {
 	struct evdi_event_mode_changed_pending *event;
 
-	event = kzalloc(sizeof(*event), GFP_KERNEL);
+	event = kzalloc_obj(*event, GFP_KERNEL);
 	if (!event) {
 		EVDI_ERROR("Failed to create mode changed event\n");
 		return NULL;
@@ -807,7 +855,7 @@ static void evdi_add_i2c_adapter(struct evdi_device *evdi)
 	struct platform_device *platdev = to_platform_device(ddev->dev);
 	int result = 0;
 
-	evdi->i2c_adapter = kzalloc(sizeof(*evdi->i2c_adapter), GFP_KERNEL);
+	evdi->i2c_adapter = kzalloc_obj(*evdi->i2c_adapter, GFP_KERNEL);
 
 	if (!evdi->i2c_adapter) {
 		EVDI_ERROR("(card%d) Failed to allocate for i2c adapter\n",
@@ -862,7 +910,6 @@ evdi_painter_connect(struct evdi_device *evdi,
 {
 	struct evdi_painter *painter = evdi->painter;
 	struct edid *new_edid = NULL;
-	unsigned int expected_edid_size = 0;
 	char buf[100];
 
 	evdi_log_process(buf, sizeof(buf));
@@ -885,15 +932,6 @@ evdi_painter_connect(struct evdi_device *evdi,
 		EVDI_ERROR("(card%d) Failed to read edid\n", evdi->dev_index);
 		kfree(new_edid);
 		return -EFAULT;
-	}
-
-	expected_edid_size = sizeof(struct edid) +
-			     new_edid->extensions * EDID_EXT_BLOCK_SIZE;
-	if (expected_edid_size != edid_length) {
-		EVDI_ERROR("Wrong edid size. Expected %d but is %d\n",
-			   expected_edid_size, edid_length);
-		kfree(new_edid);
-		return -EINVAL;
 	}
 
 	if (painter->drm_filp)
@@ -1223,10 +1261,61 @@ static void evdi_painter_unregister_from_vt(struct evdi_painter *painter)
 	EVDI_TEST_HOOK(evdi_testhook_painter_vt_register(&painter->vt_notifier));
 }
 
+#if KERNEL_VERSION(6, 7, 0) <= LINUX_VERSION_CODE
+static int evdi_painter_debugfs_measure_copy_fb(void *data, u64 val)
+{
+	struct evdi_painter *painter = (struct evdi_painter *)data;
+	struct drm_framebuffer *fb;
+	struct evdi_framebuffer *efb;
+	uint32_t dst_buf_size = 0;
+	struct iosys_map dst_mapping = IOSYS_MAP_INIT_VADDR(NULL);
+	ktime_t copy_start_time = 0;
+	ktime_t copy_end_time = 0;
+	uint32_t copy_time = 0;
+
+
+	fb = drm_framebuffer_lookup(painter->drm_device, painter->drm_filp, val);
+
+	if (!fb) {
+		EVDI_ERROR("Failed to lookup fb %llu\n", val);
+		return 0;
+	}
+
+	efb = to_evdi_fb(fb);
+	dst_buf_size = fb->obj[0]->size;
+	dst_mapping.vaddr = vmalloc(dst_buf_size);
+
+	if (evdi_gem_vmap(efb->obj) == -ENOMEM || !efb->obj->vmapping) {
+		EVDI_ERROR("Failed to map buffer\n");
+		goto put_fb;
+	}
+
+	drm_gem_fb_begin_cpu_access(fb, DMA_FROM_DEVICE);
+	copy_start_time = ktime_get();
+
+	memcpy(dst_mapping.vaddr, efb->obj->vmapping, dst_buf_size);
+
+	copy_end_time = ktime_get();
+	drm_gem_fb_end_cpu_access(fb, DMA_FROM_DEVICE);
+
+	evdi_gem_vunmap(efb->obj);
+	vfree(dst_mapping.vaddr);
+	copy_time = ktime_to_ms(copy_end_time - copy_start_time);
+
+	EVDI_DEBUG("debugfs: measure_copy_fb %llu takes %u [ms]\n", val, copy_time);
+put_fb:
+
+	drm_framebuffer_put(fb);
+	return copy_time;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(evdi_painter_debug_test_ops, NULL, evdi_painter_debugfs_measure_copy_fb, "%llu\n");
+#endif
+
 int evdi_painter_init(struct evdi_device *dev)
 {
 	EVDI_CHECKPT();
-	dev->painter = kzalloc(sizeof(*dev->painter), GFP_KERNEL);
+	dev->painter = kzalloc_obj(*dev->painter, GFP_KERNEL);
 	if (dev->painter) {
 		mutex_init(&dev->painter->lock);
 		dev->painter->edid = NULL;
@@ -1236,6 +1325,9 @@ int evdi_painter_init(struct evdi_device *dev)
 		dev->painter->vblank = NULL;
 		dev->painter->drm_device = dev->ddev;
 		evdi_painter_register_to_vt(dev->painter);
+#if KERNEL_VERSION(6, 7, 0) <= LINUX_VERSION_CODE
+		dev->painter->debugfs_measure_copy = debugfs_create_file("measure_copy_fb", 0400, dev->ddev->debugfs_root, dev->painter, &evdi_painter_debug_test_ops);
+#endif
 
 		INIT_LIST_HEAD(&dev->painter->pending_events);
 		INIT_DELAYED_WORK(&dev->painter->send_events_work,
@@ -1255,6 +1347,9 @@ void evdi_painter_cleanup(struct evdi_painter *painter)
 	}
 
 	painter_lock(painter);
+#if KERNEL_VERSION(6, 7, 0) <= LINUX_VERSION_CODE
+	debugfs_lookup_and_remove("measure_copy_fb", painter->drm_device->debugfs_root);
+#endif
 	evdi_painter_unregister_from_vt(painter);
 	kfree(painter->edid);
 	painter->edid_length = 0;
@@ -1307,7 +1402,7 @@ static struct drm_pending_event *create_ddcci_data_event(struct i2c_msg *msg)
 {
 	struct evdi_event_ddcci_data_pending *event;
 
-	event = kzalloc(sizeof(*event), GFP_KERNEL);
+	event = kzalloc_obj(*event, GFP_KERNEL);
 	if (!event || !msg) {
 		EVDI_ERROR("Failed to create ddcci data event\n");
 		return NULL;
