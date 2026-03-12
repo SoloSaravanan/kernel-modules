@@ -130,6 +130,7 @@
 #define QUIRK_360_START_PKT_1	(1 << 0)
 #define QUIRK_360_START_PKT_2	(1 << 1)
 #define QUIRK_360_START_PKT_3	(1 << 2)
+#define QUIRK_360_START_PKT_4   0x0080
 #define QUIRK_GHL_XBOXONE	(1 << 3)
 #define QUIRK_360_START (QUIRK_360_START_PKT_1 |			\
 				QUIRK_360_START_PKT_2 | QUIRK_360_START_PKT_3)
@@ -436,7 +437,7 @@ static const struct xpad_device {
 	{ 0x3767, 0x0101, "Fanatec Speedster 3 Forceshock Wheel", 0, XTYPE_XBOX },
 	{ 0x413d, 0x2104, "Black Shark Green Ghost Gamepad", 0, XTYPE_XBOX360 },
 	{ 0xffff, 0xffff, "Chinese-made Xbox Controller", 0, XTYPE_XBOX },
-	{ 0x0283, 0x0001, "Cosmic Byte Blitz", 0, XTYPE_XBOX360 },
+	{ 0x0283, 0x0001, "Cosmic Byte Blitz", 0, XTYPE_XBOX360, QUIRK_360_START_PKT_4 },
 	{ 0x0000, 0x0000, "Generic X-Box pad", 0, XTYPE_UNKNOWN }
 };
 
@@ -2066,7 +2067,21 @@ static int xpad_start_input(struct usb_xpad *xpad)
 				 "unable to receive magic message: %d\n",
 				 error);
 	}
+	if (xpad->quirks & QUIRK_360_START_PKT_4) {
+    		u8 dummy[20];
+    		int err;
 
+    		err = usb_control_msg_recv(xpad->udev, 0,
+        		0x01,                                    /* bRequest */
+        		USB_TYPE_VENDOR | USB_DIR_IN | USB_RECIP_INTERFACE,
+        		0x0100,                                  /* wValue */
+        		0x00,                                    /* wIndex */
+        		dummy, sizeof(dummy),
+        		25, GFP_KERNEL);
+    		if (err)
+        		dev_warn(&xpad->dev->dev,
+            		"Cosmic Byte Blitz: XInput init failed: %d\n", err);
+	}
 	return 0;
 }
 
