@@ -1,5 +1,6 @@
 %global module1 linuwu_sense
 %global module2 evdi
+%global module3 xpad
 %global kernel_ver_real %(rpm -q kernel-devel --qf '%{VERSION}-%{RELEASE}.%{ARCH}' | head -n1)
 %global kver_upstream %(rpm -q kernel-devel --qf '%{VERSION}' | head -n1)
 %global kver_release %(rpm -q kernel-devel --qf '%{RELEASE}' | head -n1)
@@ -28,6 +29,7 @@ This package provides collection of kernel modules built for kernel %{kernel_ver
 %prep
 cp -a %{_sourcedir}/Linuwu-Sense .
 cp -a %{_sourcedir}/evdi .
+cp -a %{_sourcedir}/xpad .
 
 %build
 # Set up kernel build directory symlink
@@ -55,6 +57,7 @@ ls -la /lib/modules/%{kernel_ver_real}/build
 
 make KVER=%{kernel_ver_real} -C Linuwu-Sense
 make KVER=%{kernel_ver_real} -C evdi
+make KVER=%{kernel_ver_real} -C xpad
 
 %install
 # linuwu_sense
@@ -67,6 +70,11 @@ mkdir -p %{buildroot}/lib/modules/%{kernel_ver_real}/kernel/drivers/gpu/drm/evdi
 install -m 644 evdi/%{module2}.ko \
     %{buildroot}/lib/modules/%{kernel_ver_real}/kernel/drivers/gpu/drm/evdi/
 
+# xpad
+mkdir -p %{buildroot}/lib/modules/%{kernel_ver_real}/extra
+install -m 644 xpad/%{module2}.ko \
+    %{buildroot}/lib/modules/%{kernel_ver_real}/extra/
+
 %post
 /sbin/depmod -a %{kernel_ver_real} || true
 
@@ -76,3 +84,4 @@ install -m 644 evdi/%{module2}.ko \
 %files
 /lib/modules/%{kernel_ver_real}/kernel/drivers/platform/x86/%{module1}.ko
 /lib/modules/%{kernel_ver_real}/kernel/drivers/gpu/drm/evdi/%{module2}.ko
+/lib/modules/%{kernel_ver_real}/extra/%{module3}.ko
