@@ -65,7 +65,7 @@ install -m 644 Linuwu-Sense/%{module1}.ko \
 # xpad
 mkdir -p %{buildroot}/lib/modules/%{kernel_ver_real}/kernel/drivers/input/joystick
 install -m 644 xpad/%{module2}.ko \
-    %{buildroot}/lib/modules/%{kernel_ver_real}//kernel/drivers/input/joystick/
+    %{buildroot}/lib/modules/%{kernel_ver_real}/kernel/drivers/input/joystick/
 
 %post
 /sbin/depmod -a %{kernel_ver_real} || true
@@ -75,4 +75,4 @@ install -m 644 xpad/%{module2}.ko \
 
 %files
 /lib/modules/%{kernel_ver_real}/kernel/drivers/platform/x86/%{module1}.ko
-/lib/modules/%{kernel_ver_real}/extra/%{module2}.ko
+/lib/modules/%{kernel_ver_real}/kernel/drivers/input/joystick/%{module2}.ko
