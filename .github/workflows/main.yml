@@ -35,7 +35,6 @@ jobs:
         run: |
           mkdir -p SOURCES SPECS
           cp -r Linuwu-Sense SOURCES/
-          cp -r evdi SOURCES/
           cp -r xpad SOURCES/
           cp kernelmodules.spec SPECS/
 
