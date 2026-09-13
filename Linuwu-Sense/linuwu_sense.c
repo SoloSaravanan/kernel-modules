@@ -48,6 +48,7 @@
 #include <linux/bitfield.h>
 #include <linux/bitmap.h>
 #include <linux/delay.h>
+#include <linux/string.h>
 
 #include <linux/version.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6,12,0)
@@ -60,7 +61,7 @@ MODULE_AUTHOR("Carlos Corbacho, E.M. Smith, 0x7375646F (Linuwu-Sense), modified 
 MODULE_DESCRIPTION("Modern Acer Laptop WMI Driver");
 MODULE_LICENSE("GPL");
 
-#define DRIVER_VERSION "25.701"
+#define DRIVER_VERSION "25.702"
 
 /*
  * Magic Number
@@ -3570,7 +3571,11 @@ static ssize_t predator_fan_speed_store(struct device *dev,
     char *token;
     char *input_ptr = input;
     size_t len = min(count, sizeof(input) - 1);
-    strncpy(input, buf, len);
+
+    if (!len)
+        return -EINVAL;
+
+    memcpy(input, buf, len);
 
     if (input[len - 1] == '\n')
     {
@@ -4072,7 +4077,10 @@ static ssize_t four_zoned_rgb_kb_store(struct device *dev, struct device_attribu
     char *input_ptr = input_buf;
     size_t len = min(count, sizeof(input_buf) - 1);
 
-    strncpy(input_buf, buf, len);
+    if (!len)
+        return -EINVAL;
+
+    memcpy(input_buf, buf, len);
 
     if (input_buf[len - 1] == '\n')
     {
@@ -4265,7 +4273,11 @@ static ssize_t per_zoned_rgb_kb_store(struct device *dev, struct device_attribut
     struct per_zone_color colors;
     char *input_ptr = str_buf;
     len = min(count, sizeof(str_buf) - 1);
-    strncpy(str_buf, buf, len);
+
+    if (!len)
+        return -EINVAL;
+
+    memcpy(str_buf, buf, len);
     if (str_buf[len - 1] == '\n')
     {
         str_buf[len - 1] = '\0';
