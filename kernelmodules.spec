@@ -62,11 +62,6 @@ mkdir -p %{buildroot}/lib/modules/%{kernel_ver_real}/kernel/drivers/platform/x86
 install -m 644 Linuwu-Sense/%{module1}.ko \
     %{buildroot}/lib/modules/%{kernel_ver_real}/kernel/drivers/platform/x86/
 
-# xpad
-mkdir -p %{buildroot}/lib/modules/%{kernel_ver_real}/kernel/drivers/input/joystick
-install -m 644 xpad/%{module2}.ko \
-    %{buildroot}/lib/modules/%{kernel_ver_real}//kernel/drivers/input/joystick/
-
 %post
 /sbin/depmod -a %{kernel_ver_real} || true
 
