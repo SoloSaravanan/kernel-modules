@@ -67,6 +67,13 @@ mkdir -p %{buildroot}/lib/modules/%{kernel_ver_real}/extra
 install -m 644 xpad/%{module2}.ko \
     %{buildroot}/lib/modules/%{kernel_ver_real}/extra/
 
+# Load the Acer driver fork at boot and avoid binding the in-kernel acer_wmi
+# driver to the same WMI interfaces.
+install -d -m 0755 %{buildroot}%{_sysconfdir}/modprobe.d
+printf 'blacklist acer_wmi\n' > %{buildroot}%{_sysconfdir}/modprobe.d/linuwu_sense.conf
+install -d -m 0755 %{buildroot}%{_sysconfdir}/modules-load.d
+printf 'linuwu_sense\n' > %{buildroot}%{_sysconfdir}/modules-load.d/linuwu_sense.conf
+
 %post
 /sbin/depmod -a %{kernel_ver_real} || true
 
@@ -76,3 +83,5 @@ install -m 644 xpad/%{module2}.ko \
 %files
 /lib/modules/%{kernel_ver_real}/kernel/drivers/platform/x86/%{module1}.ko
 /lib/modules/%{kernel_ver_real}/extra/%{module2}.ko
+%config(noreplace) %{_sysconfdir}/modprobe.d/linuwu_sense.conf
+%config(noreplace) %{_sysconfdir}/modules-load.d/linuwu_sense.conf
